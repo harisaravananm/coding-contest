@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CodeArena — Coding Contest</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #11111a;
+    --border: #1e1e2e;
+    --accent: #00ff9d;
+    --accent2: #ff6b35;
+    --accent3: #7c6aff;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --easy: #00ff9d;
+    --medium: #ffcc00;
+    --hard: #ff4466;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; overflow: hidden; }
+
+  /* ── SCANLINE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  }
+
+  /* ── PAGES ── */
+  .page { display: none; width: 100%; height: 100vh; }
+  .page.active { display: flex; }
+
+  /* ════════════════════════════════
+     LOGIN PAGE
+  ════════════════════════════════ */
+  #login-page {
+    align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 60% 40%, #0d1a14 0%, var(--bg) 70%);
+  }
+  .login-card {
+    width: 440px; padding: 48px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--accent);
+    position: relative;
+    animation: slideUp .5s ease;
+  }
+  @keyframes slideUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:none; } }
+  .login-card::before {
+    content: ''; position: absolute; top: -1px; left: 30px; width: 60px; height: 2px;
+    background: var(--accent); box-shadow: 0 0 12px var(--accent);
+  }
+  .brand {
+    font-size: 28px; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px;
+    color: var(--accent); text-shadow: 0 0 20px rgba(0,255,157,.35);
+  }
+  .brand span { color: var(--text); }
+  .tagline { font-size: 12px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 36px; }
+  .field { margin-bottom: 20px; }
+  .field label { display: block; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .field input {
+    width: 100%; padding: 12px 16px;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 14px;
+    outline: none; transition: border-color .2s;
+  }
+  .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,255,157,.1); }
+  .btn-primary {
+    width: 100%; padding: 14px; margin-top: 8px;
+    background: var(--accent); color: var(--bg);
+    font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800;
+    letter-spacing: 2px; text-transform: uppercase;
+    border: none; cursor: pointer; transition: all .2s;
+  }
+  .btn-primary:hover { background: #00e88d; box-shadow: 0 0 24px rgba(0,255,157,.4); }
+  .rules-preview {
+    margin-top: 28px; padding: 16px;
+    border: 1px dashed var(--border); font-size: 12px; color: var(--muted); line-height: 1.8;
+  }
+  .rules-preview strong { color: var(--accent2); }
+
+  /* ════════════════════════════════
+     EXAM PAGE
+  ════════════════════════════════ */
+  #exam-page { flex-direction: column; }
+
+  /* Top bar */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 56px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .topbar-brand { font-size: 16px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+  .topbar-brand span { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 12px; }
+  .timer {
+    font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700;
+    color: var(--accent); letter-spacing: 2px;
+    padding: 6px 18px; border: 1px solid rgba(0,255,157,.3);
+    transition: color .3s;
+  }
+  .timer.warning { color: var(--medium); border-color: rgba(255,204,0,.3); animation: pulse 1s infinite; }
+  .timer.danger { color: var(--hard); border-color: rgba(255,68,102,.3); animation: pulse .5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .candidate-info { font-size: 12px; color: var(--muted); text-align: right; font-family: 'JetBrains Mono', monospace; }
+  .candidate-info strong { color: var(--text); display: block; }
+
+  /* Question progress */
+  .progress-bar {
+    display: flex; gap: 4px; padding: 12px 24px;
+    background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .q-step {
+    flex: 1; height: 4px; background: var(--border); transition: background .4s;
+    position: relative;
+  }
+  .q-step.active { background: var(--accent3); }
+  .q-step.done { background: var(--accent); }
+  .q-step-label {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; color: var(--muted); letter-spacing: 1px; white-space: nowrap;
+  }
+  .q-step.active .q-step-label { color: var(--accent3); }
+  .q-step.done .q-step-label { color: var(--accent); }
+  .progress-wrap { padding-bottom: 20px; }
+
+  /* Main exam area */
+  .exam-body {
+    flex: 1; display: flex; overflow: hidden;
+  }
+
+  /* Left: question panel */
+  .question-panel {
+    width: 38%; padding: 28px 28px 28px 24px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto; display: flex; flex-direction: column; gap: 16px;
+  }
+  .difficulty-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    padding: 4px 10px; border: 1px solid; width: fit-content;
+  }
+  .badge-easy { color: var(--easy); border-color: var(--easy); background: rgba(0,255,157,.06); }
+  .badge-medium { color: var(--medium); border-color: var(--medium); background: rgba(255,204,0,.06); }
+  .badge-hard { color: var(--hard); border-color: var(--hard); background: rgba(255,68,102,.06); }
+  .question-number { font-size: 11px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; }
+  .question-title { font-size: 20px; font-weight: 800; line-height: 1.3; }
+  .question-body { font-size: 14px; color: #b0b0c0; line-height: 1.8; font-family: 'JetBrains Mono', monospace; }
+  .question-body pre {
+    background: var(--bg); padding: 12px 16px; margin: 10px 0;
+    border-left: 2px solid var(--accent3); font-size: 12px; overflow-x: auto;
+  }
+  .constraint-box {
+    padding: 12px 16px; background: var(--bg);
+    border: 1px dashed var(--border); font-size: 12px; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace; line-height: 1.7;
+  }
+  .constraint-box strong { color: var(--text); }
+
+  /* Right: code panel */
+  .code-panel {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .code-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; background: var(--surface);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .lang-selector { display: flex; gap: 4px; }
+  .lang-btn {
+    padding: 5px 12px; font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    font-weight: 600; letter-spacing: 1px;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--muted); cursor: pointer; transition: all .15s;
+  }
+  .lang-btn:hover { color: var(--text); border-color: var(--muted); }
+  .lang-btn.active { background: var(--accent3); border-color: var(--accent3); color: #fff; }
+  .clear-btn {
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    background: none; border: 1px dashed var(--border);
+    color: var(--muted); padding: 5px 12px; cursor: pointer;
+    transition: all .15s;
+  }
+  .clear-btn:hover { border-color: var(--hard); color: var(--hard); }
+
+  .code-editor-wrap { flex: 1; position: relative; overflow: hidden; }
+  .code-editor {
+    width: 100%; height: 100%; padding: 20px;
+    background: var(--bg); border: none; outline: none; resize: none;
+    color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 14px;
+    line-height: 1.7; caret-color: var(--accent);
+  }
+  .code-editor::placeholder { color: #2a2a3a; }
+  .code-editor::-webkit-scrollbar { width: 6px; }
+  .code-editor::-webkit-scrollbar-track { background: var(--bg); }
+  .code-editor::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .code-footer {
+    padding: 14px 20px; background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .char-count { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .btn-next {
+    padding: 12px 32px;
+    background: transparent; border: 1px solid var(--accent);
+    color: var(--accent); font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-next:hover { background: var(--accent); color: var(--bg); box-shadow: 0 0 24px rgba(0,255,157,.3); }
+  .btn-submit {
+    padding: 12px 32px;
+    background: var(--hard); border: 1px solid var(--hard);
+    color: #fff; font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-submit:hover { box-shadow: 0 0 24px rgba(255,68,102,.4); }
+
+  /* ════════════════════════════════
+     DONE PAGE
+  ════════════════════════════════ */
+  #done-page {
+    align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 50% 50%, #0d0d1a 0%, var(--bg) 70%);
+    flex-direction: column; gap: 20px; text-align: center;
+  }
+  .done-icon { font-size: 64px; animation: scaleIn .5s ease; }
+  @keyframes scaleIn { from{transform:scale(0)} to{transform:scale(1)} }
+  .done-title { font-size: 36px; font-weight: 800; color: var(--accent); }
+  .done-sub { font-size: 14px; color: var(--muted); max-width: 400px; line-height: 1.7; }
+  .done-meta { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text);
+    padding: 16px 28px; background: var(--surface); border: 1px solid var(--border); }
+
+  /* ════════════════════════════════
+     OVERLAY — tab switch warning
+  ════════════════════════════════ */
+  #tabwarn {
+    display: none; position: fixed; inset: 0; z-index: 10000;
+    background: rgba(10,10,15,.97);
+    align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+  }
+  #tabwarn.show { display: flex; }
+  .warn-icon { font-size: 56px; }
+  .warn-title { font-size: 28px; font-weight: 800; color: var(--hard); }
+  .warn-sub { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="login-page" class="page active">
+  <div class="login-card">
+    <div class="brand">Code<span>Arena</span></div>
+    <div class="tagline">College Coding Championship</div>
+    <div class="field">
+      <label>Full Name</label>
+      <input type="text" id="inp-name" placeholder="Enter your full name" autocomplete="off"/>
+    </div>
+    <div class="field">
+      <label>College Roll Number</label>
+      <input type="text" id="inp-roll" placeholder="e.g. 22CS104" autocomplete="off"/>
+    </div>
+    <button class="btn-primary" onclick="startExam()">ENTER ARENA →</button>
+    <div class="rules-preview">
+      <strong>⚠ Rules:</strong> 3 questions · 75 minutes · C / C++ / Python / C#<br/>
+      Tab switching will <strong>auto-submit</strong> your exam immediately.<br/>
+      Each question must be answered before proceeding to the next.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ EXAM ══════════ -->
+<div id="exam-page" class="page">
+
+  <div class="topbar">
+    <div>
+      <div class="topbar-brand">Code<span id="topbar-name">Arena</span></div>
+    </div>
+    <div class="timer" id="timer">75:00</div>
+    <div class="candidate-info">
+      <strong id="disp-name">—</strong>
+      <span id="disp-roll">—</span>
+    </div>
+  </div>
+
+  <div class="progress-wrap" style="background:var(--bg);border-bottom:1px solid var(--border);padding:16px 24px 20px;">
+    <div class="progress-bar">
+      <div class="q-step active" id="step-0"><span class="q-step-label">Q1 · Easy</span></div>
+      <div class="q-step" id="step-1"><span class="q-step-label">Q2 · Medium</span></div>
+      <div class="q-step" id="step-2"><span class="q-step-label">Q3 · Hard</span></div>
+    </div>
+  </div>
+
+  <div class="exam-body">
+    <!-- Question Panel -->
+    <div class="question-panel" id="question-panel"></div>
+
+    <!-- Code Panel -->
+    <div class="code-panel">
+      <div class="code-toolbar">
+        <div class="lang-selector" id="lang-selector">
+          <button class="lang-btn active" onclick="setLang('C')">C</button>
+          <button class="lang-btn" onclick="setLang('C++')">C++</button>
+          <button class="lang-btn" onclick="setLang('Python')">Python</button>
+          <button class="lang-btn" onclick="setLang('C#')">C#</button>
+        </div>
+        <button class="clear-btn" onclick="clearCode()">✕ Clear</button>
+      </div>
+      <div class="code-editor-wrap">
+        <textarea class="code-editor" id="code-editor"
+          placeholder="// Write your solution here..."
+          oninput="updateCharCount(this)"></textarea>
+      </div>
+      <div class="code-footer">
+        <span class="char-count" id="char-count">0 chars</span>
+        <button class="btn-next" id="action-btn" onclick="handleAction()">
+          SUBMIT & NEXT →
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ DONE ══════════ -->
+<div id="done-page" class="page">
+  <div class="done-icon">✅</div>
+  <div class="done-title">Submitted!</div>
+  <div class="done-meta" id="done-meta"></div>
+  <div class="done-sub">Your answers have been recorded. Results will be announced by the organizers. You may close this tab.</div>
+</div>
+
+<!-- ══════════ TAB WARN ══════════ -->
+<div id="tabwarn">
+  <div class="warn-icon">🚨</div>
+  <div class="warn-title">Tab Switch Detected</div>
+  <div class="warn-sub">Your exam has been auto-submitted.</div>
+</div>
+
+<!-- Hidden iframe for Google Form submission -->
+<iframe name="hidden_iframe" style="display:none"></iframe>
+
+<script>
+// ══════════════════════════════════════════
+//  ⚙️  CONFIGURE — swap these with your real values
+// ══════════════════════════════════════════
+const FORM_ACTION = "https://docs.google.com/forms/d/e/YOUR_FORM_ID_HERE/formResponse";
+const ENTRY = {
+  name:   "entry.1111111111",   // Name field
+  roll:   "entry.2222222222",   // Roll Number field
+  lang1:  "entry.3333333330",   // Q1 language
+  ans1:   "entry.3333333333",   // Q1 answer
+  lang2:  "entry.4444444440",   // Q2 language
+  ans2:   "entry.4444444444",   // Q2 answer
+  lang3:  "entry.5555555550",   // Q3 language
+  ans3:   "entry.5555555555",   // Q3 answer
+  time:   "entry.6666666666",   // Time remaining
+  status: "entry.7777777777",   // completed / tab-switch / timeout
+};
+
+// ══════════════════════════════════════════
+//  📋  QUESTIONS  — edit freely
+// ══════════════════════════════════════════
+const QUESTIONS = [
+  {
+    difficulty: "easy",
+    badge: "badge-easy",
+    label: "Easy",
+    title: "Reverse a String",
+    body: `Given a string <code>s</code>, return the string reversed.<br/><br/>
+<pre>Input:  "hello"
+Output: "olleh"
+
+Input:  "CodeArena"
+Output: "anAredoC"</pre>`,
+    constraints: `<strong>Constraints:</strong><br/>
+1 ≤ length(s) ≤ 10<sup>5</sup><br/>
+s contains only printable ASCII characters.`,
+  },
+  {
+    difficulty: "medium",
+    badge: "badge-medium",
+    label: "Medium",
+    title: "Two Sum",
+    body: `Given an array of integers <code>nums</code> and an integer <code>target</code>, return the <strong>indices</strong> of the two numbers that add up to <code>target</code>.<br/><br/>
+Each input has <strong>exactly one solution</strong>. You may not use the same element twice.<br/><br/>
+<pre>Input:  nums = [2, 7, 11, 15], target = 9
+Output: [0, 1]   // nums[0] + nums[1] = 9
+
+Input:  nums = [3, 2, 4], target = 6
+Output: [1, 2]</pre>`,
+    constraints: `<strong>Constraints:</strong><br/>
+2 ≤ nums.length ≤ 10<sup>4</sup><br/>
+-10<sup>9</sup> ≤ nums[i] ≤ 10<sup>9</sup><br/>
+Exactly one valid answer exists.`,
+  },
+  {
+    difficulty: "hard",
+    badge: "badge-hard",
+    label: "Very Hard",
+    title: "Longest Valid Parentheses",
+    body: `Given a string containing only <code>'('</code> and <code>')'</code>, return the length of the <strong>longest valid (well-formed) parentheses substring</strong>.<br/><br/>
+<pre>Input:  "(()"
+Output: 2   // "()"
+
+Input:  ")()())"
+Output: 4   // "()()"
+
+Input:  ""
+Output: 0</pre>`,
+    constraints: `<strong>Constraints:</strong><br/>
+0 ≤ s.length ≤ 3 × 10<sup>4</sup><br/>
+s[i] is <code>'('</code> or <code>')'</code> only.<br/>
+Expected: O(n) time, O(n) space.`,
+  },
+];
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let candidateName = "", candidateRoll = "";
+let currentQ = 0;
+let answers = [null, null, null];   // {lang, code}
+let selectedLang = "C";
+let timerInterval = null;
+let secondsLeft = 75 * 60;
+let submitted = false;
+
+// ══════════════════════════════════════════
+//  LOGIN
+// ══════════════════════════════════════════
+function startExam() {
+  candidateName = document.getElementById("inp-name").value.trim();
+  candidateRoll = document.getElementById("inp-roll").value.trim();
+  if (!candidateName || !candidateRoll) { alert("Please fill in both fields."); return; }
+
+  document.getElementById("disp-name").textContent = candidateName;
+  document.getElementById("disp-roll").textContent = candidateRoll;
+  document.getElementById("topbar-name").textContent = " · " + candidateName;
+
+  showPage("exam-page");
+  renderQuestion(0);
+  startTimer();
+  setupTabGuard();
+}
+
+// ══════════════════════════════════════════
+//  PAGE SWITCH
+// ══════════════════════════════════════════
+function showPage(id) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+// ══════════════════════════════════════════
+//  RENDER QUESTION
+// ══════════════════════════════════════════
+function renderQuestion(idx) {
+  const q = QUESTIONS[idx];
+  const panel = document.getElementById("question-panel");
+  panel.innerHTML = `
+    <div class="difficulty-badge ${q.badge}"><span>● ${q.label}</span></div>
+    <div class="question-number">Question ${idx + 1} of 3</div>
+    <div class="question-title">${q.title}</div>
+    <div class="question-body">${q.body}</div>
+    <div class="constraint-box">${q.constraints}</div>
+  `;
+
+  // Reset editor
+  document.getElementById("code-editor").value = answers[idx]?.code || "";
+  setLang(answers[idx]?.lang || "C");
+  updateCharCount(document.getElementById("code-editor"));
+
+  // Update progress
+  for (let i = 0; i < 3; i++) {
+    const s = document.getElementById("step-" + i);
+    s.className = "q-step";
+    if (i < idx) s.classList.add("done");
+    else if (i === idx) s.classList.add("active");
+  }
+
+  // Button label
+  const btn = document.getElementById("action-btn");
+  if (idx < 2) {
+    btn.textContent = "SUBMIT & NEXT →";
+    btn.className = "btn-next";
+  } else {
+    btn.textContent = "FINAL SUBMIT ✓";
+    btn.className = "btn-submit";
+  }
+}
+
+// ══════════════════════════════════════════
+//  LANGUAGE
+// ══════════════════════════════════════════
+function setLang(lang) {
+  selectedLang = lang;
+  document.querySelectorAll(".lang-btn").forEach(b => {
+    b.classList.toggle("active", b.textContent.trim() === lang);
+  });
+}
+
+function clearCode() {
+  if (confirm("Clear your code for this question?"))
+    document.getElementById("code-editor").value = "";
+}
+
+function updateCharCount(el) {
+  document.getElementById("char-count").textContent = el.value.length + " chars";
+}
+
+// ══════════════════════════════════════════
+//  ACTION (next / final submit)
+// ══════════════════════════════════════════
+function handleAction() {
+  const code = document.getElementById("code-editor").value.trim();
+  if (!code) { alert("Please write your solution before proceeding."); return; }
+
+  answers[currentQ] = { lang: selectedLang, code };
+
+  if (currentQ < 2) {
+    currentQ++;
+    renderQuestion(currentQ);
+  } else {
+    submitAll("completed");
+  }
+}
+
+// ══════════════════════════════════════════
+//  TIMER
+// ══════════════════════════════════════════
+function startTimer() {
+  timerInterval = setInterval(() => {
+    secondsLeft--;
+    const m = Math.floor(secondsLeft / 60);
+    const s = secondsLeft % 60;
+    const el = document.getElementById("timer");
+    el.textContent = String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+    if (secondsLeft <= 300 && secondsLeft > 60) el.className = "timer warning";
+    if (secondsLeft <= 60) el.className = "timer danger";
+    if (secondsLeft <= 0) { clearInterval(timerInterval); submitAll("timeout"); }
+  }, 1000);
+}
+
+// ══════════════════════════════════════════
+//  TAB GUARD
+// ══════════════════════════════════════════
+function setupTabGuard() {
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && !submitted) {
+      document.getElementById("tabwarn").classList.add("show");
+      submitAll("tab-switch");
+    }
+  });
+}
+
+// ══════════════════════════════════════════
+//  SUBMIT TO GOOGLE FORM
+// ══════════════════════════════════════════
+function submitAll(reason) {
+  if (submitted) return;
+  submitted = true;
+  clearInterval(timerInterval);
+
+  // Save current editor content if not yet saved
+  const code = document.getElementById("code-editor").value.trim();
+  if (code && !answers[currentQ]) answers[currentQ] = { lang: selectedLang, code };
+
+  const a1 = answers[0] || { lang: "—", code: "No answer" };
+  const a2 = answers[1] || { lang: "—", code: "No answer" };
+  const a3 = answers[2] || { lang: "—", code: "No answer" };
+
+  const timeUsed = formatTime(75 * 60 - secondsLeft);
+
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = FORM_ACTION;
+  form.target = "hidden_iframe";
+  form.style.display = "none";
+
+  const fields = {
+    [ENTRY.name]:  candidateName,
+    [ENTRY.roll]:  candidateRoll,
+    [ENTRY.lang1]: a1.lang,
+    [ENTRY.ans1]:  a1.code,
+    [ENTRY.lang2]: a2.lang,
+    [ENTRY.ans2]:  a2.code,
+    [ENTRY.lang3]: a3.lang,
+    [ENTRY.ans3]:  a3.code,
+    [ENTRY.time]:  timeUsed,
+    [ENTRY.status]: reason,
+  };
+
+  for (const [name, value] of Object.entries(fields)) {
+    const inp = document.createElement("input");
+    inp.type = "hidden"; inp.name = name; inp.value = value;
+    form.appendChild(inp);
+  }
+
+  document.body.appendChild(form);
+  form.submit();
+
+  // Show done screen
+  setTimeout(() => {
+    document.getElementById("done-meta").innerHTML =
+      `<strong>${candidateName}</strong> · ${candidateRoll}<br/>
+       Time used: ${timeUsed} · Status: <span style="color:${reason==='completed'?'var(--easy)':'var(--hard)'}">${reason.toUpperCase()}</span>`;
+    showPage("done-page");
+    document.getElementById("tabwarn").classList.remove("show");
+  }, 600);
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+
+// ══════════════════════════════════════════
+//  Enter key on login
+// ══════════════════════════════════════════
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && document.getElementById("login-page").classList.contains("active"))
+    startExam();
+});
+</script>
+</body>
+</html>
